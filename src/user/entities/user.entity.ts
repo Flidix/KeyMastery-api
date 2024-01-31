@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity } from 'typeorm';
+import { Column, CreateDateColumn, Entity, OneToMany } from 'typeorm';
 
 import { BaseEntity } from '@shared/database/entities/base.entity';
+import { TextEntity } from 'src/text/entities/text.entity';
 
 import { databaseTables } from '@shared/database/constants';
 
@@ -17,4 +18,7 @@ export class UserEntity extends BaseEntity {
 
   @CreateDateColumn()
   lastLoginAt: Date;
+
+  @OneToMany(() => TextEntity, (text) => text.user)
+  currentText: TextEntity;
 }
