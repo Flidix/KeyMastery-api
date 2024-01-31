@@ -1,13 +1,16 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 import * as bcrypt from 'bcryptjs';
 import { genSalt, hash } from 'bcryptjs';
 import { JwtPayload, sign, verify } from 'jsonwebtoken';
-import { createTransport } from 'nodemailer';
+import { createTransport } from 'nodeMailer';
+import { DataSource } from 'typeorm';
 
 import { Environment } from '@shared/variables/environment';
 
 import { DatabaseService } from '@shared/database/services/database.service';
+import { TextService } from 'src/text/text.service';
 
 import { AuthDto } from './dto/auth.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -16,6 +19,13 @@ import { authEmailPage } from './pages/auth-email.page';
 
 @Injectable()
 export class AuthService extends DatabaseService {
+  constructor(
+    @InjectDataSource() datasource: DataSource,
+    private readonly textService: TextService,
+  ) {
+    super(datasource);
+  }
+
   async register(dto: AuthDto) {
     // await this.database.users.checkNotExists({ email: dto.email });
     const salt = await genSalt(10);
@@ -23,6 +33,7 @@ export class AuthService extends DatabaseService {
       ...dto,
       password: await hash(dto.password, salt),
     });
+    await this.textService.createText(user.id);
     const html = authEmailPage('http://localhost:8000/api/auth/confirmation/user/' + user.id);
 
     await this.sendEmail(user.email, html);
@@ -37,6 +48,7 @@ export class AuthService extends DatabaseService {
     if (!deHashPassword) {
       throw new BadRequestException('Invalid credentials');
     }
+
     const html = authEmailPage('http://localhost:8000/api/auth/confirmation/user/' + user.id);
     await this.sendEmail(user.email, html);
     const token = await this.issueAccessToken(user.id, user.email);
