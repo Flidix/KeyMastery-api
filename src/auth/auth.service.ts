@@ -3,7 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 
 import * as bcrypt from 'bcryptjs';
 import { genSalt, hash } from 'bcryptjs';
-import { JwtPayload, sign, verify } from 'jsonwebtoken';
+import { JwtPayload, sign, verify, decode } from 'jsonwebtoken';
 import { createTransport } from 'nodeMailer';
 import { DataSource } from 'typeorm';
 
@@ -34,7 +34,7 @@ export class AuthService extends DatabaseService {
       password: await hash(dto.password, salt),
     });
     await this.textService.createText(user.id);
-    const html = authEmailPage('http://localhost:8000/api/auth/confirmation/user/' + user.id);
+    const html = authEmailPage('http://localhost:5173/confirm/user/' + user.id);
 
     await this.sendEmail(user.email, html);
 
@@ -44,12 +44,12 @@ export class AuthService extends DatabaseService {
   async logIn(dto: AuthDto) {
     const { email, password, username } = dto;
     const user = await this.database.users.findOneOrFail({ where: { email, username } });
-    const deHashPassword = await bcrypt.compare(password, user.password);
+    const deHashPassword = await bcrypt.compare(password, user.password)
     if (!deHashPassword) {
       throw new BadRequestException('Invalid credentials');
     }
 
-    const html = authEmailPage('http://localhost:8000/api/auth/confirmation/user/' + user.id);
+    const html = authEmailPage('http://localhost:5173/confirm/user/' + user.id);
     await this.sendEmail(user.email, html);
     const token = await this.issueAccessToken(user.id, user.email);
     return {
@@ -105,18 +105,20 @@ export class AuthService extends DatabaseService {
 
   async issueAccessToken(userId: number, userEmail: string) {
     const refreshToken = sign({ userId: userId, email: userEmail }, Environment.JWT_SECRET, {
-      expiresIn: '1h',
+      expiresIn: '7d',
     });
 
     const accessToken = sign({ userId: userId }, Environment.JWT_SECRET, {
-      expiresIn: '7d',
+      expiresIn: '1h',
     });
     return { refreshToken, accessToken };
   }
 
   async getNewTokens(dto: RefreshTokenDto) {
     const result = (await verify(dto.refreshToken, Environment.JWT_SECRET)) as JwtPayload;
+    console.log(result)
     if (!result) {
+      console.log(2)
       throw new UnauthorizedException('Invalid refresh token');
     }
     const token = await this.issueAccessToken(result.userId, result.email);
