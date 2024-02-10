@@ -3,7 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 
 import * as bcrypt from 'bcryptjs';
 import { genSalt, hash } from 'bcryptjs';
-import { JwtPayload, sign, verify, decode } from 'jsonwebtoken';
+import { JwtPayload, decode, sign, verify } from 'jsonwebtoken';
 import { createTransport } from 'nodeMailer';
 import { DataSource } from 'typeorm';
 
@@ -44,7 +44,7 @@ export class AuthService extends DatabaseService {
   async logIn(dto: AuthDto) {
     const { email, password, username } = dto;
     const user = await this.database.users.findOneOrFail({ where: { email, username } });
-    const deHashPassword = await bcrypt.compare(password, user.password)
+    const deHashPassword = await bcrypt.compare(password, user.password);
     if (!deHashPassword) {
       throw new BadRequestException('Invalid credentials');
     }
@@ -86,7 +86,10 @@ export class AuthService extends DatabaseService {
   }
 
   async confirm(id: number) {
-    const user = await this.database.users.findOneOrFail({ where: { id } });
+    const user = await this.database.users.findOneOrFail({
+      where: { id },
+      relations: { currentText: true },
+    });
     const currentTime = new Date();
     const createdAtTime = new Date(user.lastLoginAt);
     const timeDifferenceMinutes = Math.floor(
@@ -116,9 +119,9 @@ export class AuthService extends DatabaseService {
 
   async getNewTokens(dto: RefreshTokenDto) {
     const result = (await verify(dto.refreshToken, Environment.JWT_SECRET)) as JwtPayload;
-    console.log(result)
+    console.log(result);
     if (!result) {
-      console.log(2)
+      console.log(2);
       throw new UnauthorizedException('Invalid refresh token');
     }
     const token = await this.issueAccessToken(result.userId, result.email);
